@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>CliContracts</RootNamespace>
+    <AssemblyName>CliContracts</AssemblyName>
+    <Description>Define, validate, and stabilize CLI behavior using C# contracts</Description>
+    <Authors>CliContracts Contributors</Authors>
+    <PackageTags>cli;contracts;validation;testing</PackageTags>
+  </PropertyGroup>
+
+</Project>

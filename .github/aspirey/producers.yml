@@ -1,0 +1,31 @@
+version: 1
+workflows:
+  - name: update-docs-on-merge
+    description: Trigger documentation updates when PRs are merged
+    triggers:
+      - pull_request.merged
+    conditions:
+      # Optional: Uncomment to filter by paths or labels
+      # paths: ["src/**"]
+      # labels: ["documentation", "feature"]
+    context:
+      includeChangedFiles: true
+      includeDiff: true
+      includePrDescription: true
+    prompt:
+      file: prompts/docs-update.md
+      system: |
+        You are a technical documentation expert for the CliContracts library.
+        Your role is to analyze code changes and identify what documentation 
+        needs to be updated in the Starlight documentation site.
+      model: gpt-4o
+    action:
+      type: create_issue
+      targetRepo:
+        owner: ievangelist
+        repo: content
+      config:
+        title: "[Docs] {{title}}"
+        labels:
+          - documentation
+          - automated

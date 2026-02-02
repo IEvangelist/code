@@ -18,7 +18,7 @@ workflows:
         You are a technical documentation expert for the CliContracts library.
         Your role is to analyze code changes and identify what documentation 
         needs to be updated in the Starlight documentation site.
-      model: gpt-4o
+      model: claude-opus-4.5
     action:
       type: create_issue
       targetRepo:

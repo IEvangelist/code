@@ -1,0 +1,73 @@
+# Welcome Contributors Configuration
+# Greets first-time contributors and provides helpful information
+
+version: "1.0"
+name: Welcome Contributors
+description: Welcome new contributors to the project
+
+triggers:
+  # Welcome new issue authors
+  - event: issues
+    on:
+      - opened
+    actions:
+      - type: add-comment
+        body: |
+          Thanks for opening this issue, @{{ issue.author }}! 👋
+          
+          A maintainer will review it soon. In the meantime:
+          
+          - 🔍 Search [existing issues](../../issues) to see if this has been reported
+          - 📖 Check our [documentation](../docs) for answers
+          - 🏷️ Add relevant labels if you have permission
+          
+          We appreciate your contribution to the project!
+
+  # Welcome new PR authors
+  - event: pull_request
+    on:
+      - opened
+    actions:
+      - type: add-comment
+        body: |
+          Thanks for this pull request, @{{ pull_request.author }}! 🎉
+          
+          ## Checklist
+          
+          Before we can review your PR, please ensure:
+          
+          - [ ] Tests pass locally
+          - [ ] Code follows our style guidelines
+          - [ ] Documentation is updated (if applicable)
+          - [ ] Commit messages are descriptive
+          
+          A maintainer will review your PR soon. Thanks for contributing!
+
+  # Celebrate merged PRs
+  - event: pull_request
+    on:
+      - closed
+    conditions:
+      state: merged
+    actions:
+      - type: add-comment
+        body: |
+          🎉 Congratulations, @{{ pull_request.author }}! Your PR has been merged!
+          
+          Thank you for your contribution to the project. You're awesome! 🌟
+
+  # Thank contributors when issues are closed
+  - event: issues
+    on:
+      - closed
+    conditions:
+      labels:
+        any-of:
+          - "good first issue"
+          - "help wanted"
+    actions:
+      - type: add-comment
+        body: |
+          This issue has been resolved! 🎉
+          
+          Thank you to everyone who contributed to fixing this issue.

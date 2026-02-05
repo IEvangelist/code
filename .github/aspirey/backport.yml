@@ -1,0 +1,146 @@
+# Backport Configuration
+# Slash commands for backporting PRs to release branches
+
+version: "1.0"
+name: Backport
+description: Backport merged PRs to release branches
+
+commands:
+  # Backport to a specific branch
+  - name: backport
+    aliases:
+      - bp
+      - cherry-pick
+    description: Backport this PR to a target branch
+    parameters:
+      - name: targetBranch
+        type: branch
+        required: true
+        description: Target branch for backport (e.g., release/v1.0)
+        pattern: "^(release|hotfix)/"
+    permissions:
+      roles:
+        - write
+        - maintain
+        - admin
+    conditions:
+      state: merged
+    actions:
+      - type: add-labels
+        labels:
+          - "backport:{{ targetBranch }}"
+      - type: create-branch
+        source: "{{ pull_request.merge_commit_sha }}"
+        target: "backport/{{ targetBranch | replace: '/', '-' }}/pr-{{ pull_request.number }}"
+      - type: add-comment
+        body: |
+          🔄 Backport initiated to `{{ targetBranch }}`
+          
+          A new branch has been created: `backport/{{ targetBranch | replace: '/', '-' }}/pr-{{ pull_request.number }}`
+          
+          **Next steps:**
+          1. Check out the backport branch
+          2. Resolve any conflicts if needed
+          3. Create a new PR targeting `{{ targetBranch }}`
+          
+          ```bash
+          git fetch origin
+          git checkout backport/{{ targetBranch | replace: '/', '-' }}/pr-{{ pull_request.number }}
+          ```
+      - type: add-reaction
+        reaction: "+1"
+
+  # Quick backport to common branches
+  - name: backport-v1
+    description: Backport to release/v1.x
+    permissions:
+      roles:
+        - write
+        - maintain
+        - admin
+    conditions:
+      state: merged
+    actions:
+      - type: add-labels
+        labels:
+          - "backport:v1"
+      - type: create-branch
+        source: "{{ pull_request.merge_commit_sha }}"
+        target: "backport/v1/pr-{{ pull_request.number }}"
+      - type: add-comment
+        body: |
+          🔄 Backport initiated to `release/v1.x`
+          
+          Branch created: `backport/v1/pr-{{ pull_request.number }}`
+      - type: add-reaction
+        reaction: "+1"
+
+  - name: backport-v2
+    description: Backport to release/v2.x
+    permissions:
+      roles:
+        - write
+        - maintain
+        - admin
+    conditions:
+      state: merged
+    actions:
+      - type: add-labels
+        labels:
+          - "backport:v2"
+      - type: create-branch
+        source: "{{ pull_request.merge_commit_sha }}"
+        target: "backport/v2/pr-{{ pull_request.number }}"
+      - type: add-comment
+        body: |
+          🔄 Backport initiated to `release/v2.x`
+          
+          Branch created: `backport/v2/pr-{{ pull_request.number }}`
+      - type: add-reaction
+        reaction: "+1"
+
+triggers:
+  # Auto-suggest backport for bug fixes
+  - event: pull_request
+    on:
+      - closed
+    conditions:
+      state: merged
+      labels:
+        any-of:
+          - bug
+          - security
+      branches:
+        base:
+          any-of:
+            - main
+            - master
+    actions:
+      - type: add-comment
+        body: |
+          ℹ️ This bug fix was merged to the main branch.
+          
+          If this should be backported to a release branch, use one of these commands:
+          
+          - `/backport release/v2.x` - Backport to v2.x
+          - `/backport release/v1.x` - Backport to v1.x
+          - `/backport-v2` - Quick backport to v2.x
+          - `/backport-v1` - Quick backport to v1.x
+
+  # Label backported PRs
+  - event: pull_request
+    on:
+      - opened
+    conditions:
+      branches:
+        head:
+          matches: "^backport/"
+    actions:
+      - type: add-labels
+        labels:
+          - backport
+      - type: add-comment
+        body: |
+          🔄 This is a backport PR.
+          
+          Please review carefully and ensure all changes apply cleanly to the target branch.

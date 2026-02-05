@@ -1,0 +1,216 @@
+# Security Configuration
+# Automation for security-related issues and PRs
+
+version: "1.0"
+name: Security Automation
+description: Handle security-related issues and pull requests
+
+triggers:
+  # Auto-label security issues based on keywords
+  - event: issues
+    on:
+      - opened
+    conditions:
+      title:
+        matches: "(?i)(security|vulnerability|CVE|exploit|injection|XSS|CSRF|auth)"
+      labels:
+        none-of:
+          - security
+    actions:
+      - type: add-labels
+        labels:
+          - security
+          - "priority:high"
+      - type: add-comment
+        body: |
+          ⚠️ This issue has been automatically flagged as security-related.
+          
+          **Security team has been notified.**
+          
+          If this is a security vulnerability:
+          - Please do **not** share exploit details publicly
+          - Consider using our [security advisory process](../../security/advisories/new)
+          
+          A security team member will review this shortly.
+
+  # Auto-assign security team for security issues
+  - event: issues
+    on:
+      - labeled
+    conditions:
+      labels:
+        any-of:
+          - security
+    actions:
+      - type: add-labels
+        labels:
+          - "priority:high"
+
+  # Fast-track security PRs
+  - event: pull_request
+    on:
+      - opened
+    conditions:
+      labels:
+        any-of:
+          - security
+    actions:
+      - type: add-labels
+        labels:
+          - "priority:high"
+          - "fast-track"
+      - type: request-review
+        teams:
+          - security-team
+      - type: add-comment
+        body: |
+          🔒 This PR has been flagged as security-related.
+          
+          **Security team review requested.**
+          
+          This PR will be prioritized for review.
+
+  # Notify on security label removal
+  - event: issues
+    on:
+      - unlabeled
+    conditions:
+      labels:
+        none-of:
+          - security
+    actions:
+      - type: add-comment
+        body: |
+          ℹ️ The security label was removed by @{{ actor }}.
+          
+          If this was a mistake, please re-add the `security` label.
+
+commands:
+  # Mark as security issue
+  - name: security
+    aliases:
+      - sec
+    description: Mark this as a security-related issue
+    permissions:
+      roles:
+        - triage
+        - write
+        - maintain
+        - admin
+      teams:
+        - security-team
+    actions:
+      - type: add-labels
+        labels:
+          - security
+          - "priority:high"
+      - type: add-reaction
+        reaction: "+1"
+      - type: add-comment
+        body: |
+          🔒 This issue has been marked as security-related by @{{ actor }}.
+
+  # Mark as CVE
+  - name: cve
+    description: Link this issue to a CVE
+    parameters:
+      - name: cveId
+        type: string
+        required: true
+        description: CVE identifier (e.g., CVE-2024-12345)
+        pattern: "^CVE-\\d{4}-\\d+$"
+    permissions:
+      roles:
+        - maintain
+        - admin
+      teams:
+        - security-team
+    actions:
+      - type: add-labels
+        labels:
+          - security
+          - CVE
+          - "priority:high"
+      - type: add-comment
+        body: |
+          🔒 This issue is linked to **{{ cveId }}**.
+          
+          For more information, see: https://cve.mitre.org/cgi-bin/cvename.cgi?name={{ cveId }}
+
+  # Create security advisory
+  - name: advisory
+    description: Suggest creating a security advisory for this issue
+    permissions:
+      roles:
+        - maintain
+        - admin
+      teams:
+        - security-team
+    actions:
+      - type: add-labels
+        labels:
+          - security
+          - "needs-advisory"
+      - type: add-comment
+        body: |
+          📋 A security advisory should be created for this issue.
+          
+          **Next steps:**
+          1. [Create a security advisory](../../security/advisories/new)
+          2. Reference this issue in the advisory
+          3. Coordinate disclosure timeline
+          
+          For guidance, see our [security policy](../../security/policy).
+
+  # Embargo discussion
+  - name: embargo
+    description: Mark this issue as under security embargo
+    parameters:
+      - name: until
+        type: string
+        required: false
+        description: Embargo end date (e.g., 2024-03-15)
+    permissions:
+      roles:
+        - admin
+      teams:
+        - security-team
+    actions:
+      - type: add-labels
+        labels:
+          - security
+          - embargo
+      - type: lock
+        reason: resolved
+      - type: add-comment
+        body: |
+          🔐 This issue is now under **security embargo**.
+          
+          {{ until | prepend: "Embargo until: " | default: "Embargo date to be determined." }}
+          
+          - Discussion is restricted to the security team
+          - Do not share details outside this issue
+          - Contact security@example.com for questions
+
+  # Verify fix
+  - name: security-verified
+    aliases:
+      - sec-verified
+    description: Mark security fix as verified
+    permissions:
+      teams:
+        - security-team
+    actions:
+      - type: add-labels
+        labels:
+          - "security-verified"
+      - type: remove-labels
+        labels:
+          - "needs-security-review"
+      - type: add-comment
+        body: |
+          ✅ Security fix has been verified by @{{ actor }}.
+          
+          This change is approved from a security perspective.
+      - type: add-reaction
+        reaction: "+1"

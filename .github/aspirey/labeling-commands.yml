@@ -1,0 +1,173 @@
+# Labeling Commands Configuration
+# Slash commands for managing labels on issues and PRs
+#
+# NOTE: Permissions are implicit based on actions. The `add-labels` and
+# `remove-labels` actions require at least "triage" access. Any collaborator
+# with triage, write, maintain, or admin access can use these commands.
+
+version: "1.0"
+name: Labeling Commands
+description: Slash commands for label management
+
+commands:
+  # Add a single label
+  - name: label
+    aliases:
+      - l
+      - add-label
+    description: Add a label to this issue or PR
+    parameters:
+      - name: labelName
+        type: label
+        required: true
+        description: The label to add
+    actions:
+      - type: add-labels
+        labels:
+          - "{{ labelName }}"
+      - type: add-reaction
+        reaction: "+1"
+
+  # Remove a label
+  - name: unlabel
+    aliases:
+      - remove-label
+    description: Remove a label from this issue or PR
+    parameters:
+      - name: labelName
+        type: label
+        required: true
+        description: The label to remove
+    actions:
+      - type: remove-labels
+        labels:
+          - "{{ labelName }}"
+      - type: add-reaction
+        reaction: "+1"
+
+  # Mark as bug
+  - name: bug
+    description: Mark this issue as a bug
+    actions:
+      - type: add-labels
+        labels:
+          - bug
+      - type: remove-labels
+        labels:
+          - feature
+          - question
+          - needs-triage
+      - type: add-reaction
+        reaction: "+1"
+
+  # Mark as feature request
+  - name: feature
+    aliases:
+      - enhancement
+    description: Mark this issue as a feature request
+    actions:
+      - type: add-labels
+        labels:
+          - feature
+      - type: remove-labels
+        labels:
+          - bug
+          - question
+          - needs-triage
+      - type: add-reaction
+        reaction: "+1"
+
+  # Set priority
+  - name: priority
+    aliases:
+      - p
+    description: Set the priority of this issue
+    parameters:
+      - name: level
+        type: string
+        required: true
+        description: Priority level (high, medium, low)
+        pattern: "^(high|medium|low)$"
+    actions:
+      - type: remove-labels
+        labels:
+          - "priority:high"
+          - "priority:medium"
+          - "priority:low"
+      - type: add-labels
+        labels:
+          - "priority:{{ level }}"
+      - type: remove-labels
+        labels:
+          - needs-triage
+      - type: add-reaction
+        reaction: "+1"
+
+  # Mark as duplicate
+  - name: duplicate
+    aliases:
+      - dup
+    description: Mark this issue as a duplicate
+    parameters:
+      - name: originalIssue
+        type: number
+        required: true
+        description: The original issue number
+    actions:
+      - type: add-labels
+        labels:
+          - duplicate
+      - type: add-comment
+        body: |
+          This issue has been marked as a duplicate of #{{ originalIssue }}.
+          
+          Please follow the original issue for updates.
+      - type: close
+        reason: duplicate
+
+  # Mark as wontfix
+  - name: wontfix
+    description: Close this issue as won't fix
+    parameters:
+      - name: reason
+        type: string
+        required: false
+        description: Reason for not fixing
+    actions:
+      - type: add-labels
+        labels:
+          - wontfix
+      - type: add-comment
+        body: |
+          This issue has been closed as **won't fix**.
+          
+          {{ reason | default: "This is outside the scope of this project or not something we plan to address." }}
+          
+          If you believe this decision should be reconsidered, please open a discussion.
+      - type: close
+        reason: not_planned
+
+  # Good first issue
+  - name: good-first-issue
+    aliases:
+      - gfi
+    description: Mark this as a good first issue for new contributors
+    actions:
+      - type: add-labels
+        labels:
+          - "good first issue"
+          - "help wanted"
+      - type: add-reaction
+        reaction: "+1"
+
+  # Help wanted
+  - name: help-wanted
+    aliases:
+      - hw
+    description: Mark this issue as needing help
+    actions:
+      - type: add-labels
+        labels:
+          - "help wanted"
+      - type: add-reaction
+        reaction: "+1"

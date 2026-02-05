@@ -1,0 +1,257 @@
+# Release Management Configuration
+# Automation for release workflows
+
+version: "1.0"
+name: Release Management
+description: Automate release workflow processes
+
+triggers:
+  # Label PRs targeting release branches
+  - event: pull_request
+    on:
+      - opened
+    conditions:
+      branches:
+        base:
+          matches: "^release/"
+    actions:
+      - type: add-labels
+        labels:
+          - release
+      - type: add-comment
+        body: |
+          ℹ️ This PR targets a release branch.
+          
+          **Release branch checklist:**
+          - [ ] Changes are backwards compatible
+          - [ ] All tests pass
+          - [ ] Documentation updated
+          - [ ] Changelog entry added
+          
+          A release manager will review this PR.
+
+  # Auto-label based on semver impact
+  - event: pull_request
+    on:
+      - labeled
+    conditions:
+      labels:
+        any-of:
+          - "breaking-change"
+    actions:
+      - type: add-labels
+        labels:
+          - "semver:major"
+
+  - event: pull_request
+    on:
+      - labeled
+    conditions:
+      labels:
+        any-of:
+          - feature
+    actions:
+      - type: add-labels
+        labels:
+          - "semver:minor"
+
+  - event: pull_request
+    on:
+      - labeled
+    conditions:
+      labels:
+        any-of:
+          - bug
+          - "bug fix"
+    actions:
+      - type: add-labels
+        labels:
+          - "semver:patch"
+
+  # Notify when release branch is updated
+  - event: pull_request
+    on:
+      - closed
+    conditions:
+      state: merged
+      branches:
+        base:
+          matches: "^release/"
+    actions:
+      - type: add-comment
+        body: |
+          ✅ This PR has been merged to the release branch.
+          
+          Remember to update the changelog if needed.
+
+commands:
+  # Prepare release
+  - name: release
+    description: Mark this PR as part of a release
+    parameters:
+      - name: version
+        type: string
+        required: true
+        description: Version number (e.g., 1.2.3)
+        pattern: "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    permissions:
+      roles:
+        - maintain
+        - admin
+      teams:
+        - release-managers
+    actions:
+      - type: add-labels
+        labels:
+          - release
+          - "version:{{ version }}"
+      - type: add-comment
+        body: |
+          🏷️ This PR is part of release **v{{ version }}**.
+
+  # Mark as breaking change
+  - name: breaking
+    aliases:
+      - major
+    description: Mark this PR as containing breaking changes
+    permissions:
+      roles:
+        - write
+        - maintain
+        - admin
+    actions:
+      - type: add-labels
+        labels:
+          - "breaking-change"
+          - "semver:major"
+      - type: add-comment
+        body: |
+          ⚠️ This PR contains **breaking changes**.
+          
+          Please ensure:
+          - [ ] Migration guide is provided
+          - [ ] Changelog clearly describes the breaking change
+          - [ ] Deprecation warnings were added in a previous release (if applicable)
+      - type: add-reaction
+        reaction: "+1"
+
+  # Mark for next release
+  - name: milestone
+    description: Add this issue to a milestone
+    parameters:
+      - name: milestoneName
+        type: milestone
+        required: true
+        description: Milestone name or number
+    permissions:
+      roles:
+        - triage
+        - write
+        - maintain
+        - admin
+    actions:
+      - type: add-comment
+        body: |
+          📅 Added to milestone: **{{ milestoneName }}**
+      - type: add-reaction
+        reaction: "+1"
+
+  # Cherry-pick for release
+  - name: cherry-pick
+    aliases:
+      - cp
+    description: Cherry-pick this commit to a release branch
+    parameters:
+      - name: targetBranch
+        type: branch
+        required: true
+        description: Target release branch
+        pattern: "^release/"
+    permissions:
+      roles:
+        - write
+        - maintain
+        - admin
+      teams:
+        - release-managers
+    conditions:
+      state: merged
+    actions:
+      - type: add-labels
+        labels:
+          - "cherry-pick:{{ targetBranch }}"
+      - type: add-comment
+        body: |
+          🍒 Cherry-pick requested to `{{ targetBranch }}` by @{{ actor }}.
+          
+          A release manager will process this request.
+      - type: add-reaction
+        reaction: "+1"
+
+  # Ship it!
+  - name: shipit
+    aliases:
+      - lgtm-release
+    description: Approve this PR for release
+    permissions:
+      teams:
+        - release-managers
+    actions:
+      - type: add-labels
+        labels:
+          - "ready-to-ship"
+      - type: add-comment
+        body: |
+          🚀 This PR is approved for release by @{{ actor }}.
+          
+          Ship it! 🎉
+      - type: add-reaction
+        reaction: rocket
+
+  # Block from release
+  - name: block-release
+    description: Block this PR from being released
+    parameters:
+      - name: reason
+        type: string
+        required: false
+        description: Reason for blocking
+    permissions:
+      roles:
+        - maintain
+        - admin
+      teams:
+        - release-managers
+    actions:
+      - type: add-labels
+        labels:
+          - "release-blocked"
+      - type: remove-labels
+        labels:
+          - "ready-to-ship"
+      - type: add-comment
+        body: |
+          🛑 This PR has been blocked from release by @{{ actor }}.
+          
+          {{ reason | default: "Reason not specified. Please see related comments." }}
+      - type: add-reaction
+        reaction: "-1"
+
+  # Unblock release
+  - name: unblock-release
+    description: Remove release block from this PR
+    permissions:
+      roles:
+        - maintain
+        - admin
+      teams:
+        - release-managers
+    actions:
+      - type: remove-labels
+        labels:
+          - "release-blocked"
+      - type: add-comment
+        body: |
+          ✅ Release block removed by @{{ actor }}.
+      - type: add-reaction
+        reaction: "+1"

@@ -1,0 +1,123 @@
+# Stale Issues Configuration
+# Marks and closes stale issues and pull requests
+
+version: "1.0"
+name: Stale Issues
+description: Handle stale issues and pull requests
+
+triggers:
+  # Mark issues as stale after 30 days of inactivity
+  - event: issues
+    on:
+      - opened
+      - edited
+    conditions:
+      state: open
+      age:
+        older-than: 30d
+      labels:
+        none-of:
+          - stale
+          - "priority:high"
+          - pinned
+          - "keep-open"
+    actions:
+      - type: add-labels
+        labels:
+          - stale
+      - type: add-comment
+        body: |
+          👋 This issue has been automatically marked as **stale** because it has not had recent activity.
+          
+          It will be closed in 14 days if no further activity occurs.
+          
+          If this issue is still relevant:
+          - Comment to keep it open
+          - Add the `keep-open` label
+          
+          Thank you for your contributions!
+
+  # Close stale issues after 14 more days
+  - event: issues
+    on:
+      - labeled
+    conditions:
+      state: open
+      labels:
+        all-of:
+          - stale
+      age:
+        older-than: 44d  # 30 + 14 days
+    actions:
+      - type: close
+        reason: not_planned
+      - type: add-comment
+        body: |
+          🔒 This issue has been closed due to inactivity.
+          
+          If you believe this issue is still relevant, please open a new issue with updated information.
+
+  # Remove stale label when there's activity
+  - event: issue_comment
+    on:
+      - created
+    conditions:
+      labels:
+        any-of:
+          - stale
+    actions:
+      - type: remove-labels
+        labels:
+          - stale
+      - type: add-comment
+        body: |
+          ✅ The stale label has been removed due to recent activity.
+
+  # Mark PRs as stale after 14 days
+  - event: pull_request
+    on:
+      - opened
+      - synchronize
+    conditions:
+      state: open
+      age:
+        older-than: 14d
+      labels:
+        none-of:
+          - stale
+          - "work-in-progress"
+          - "waiting-for-review"
+    actions:
+      - type: add-labels
+        labels:
+          - stale
+      - type: add-comment
+        body: |
+          👋 This pull request has been automatically marked as **stale** because it has not had recent activity.
+          
+          It will be closed in 7 days if no further activity occurs.
+          
+          To keep this PR open:
+          - Push new commits
+          - Comment on this PR
+          - Add the `work-in-progress` label
+
+commands:
+  # Command to keep issues open
+  - name: keep-open
+    description: Prevent this issue from being marked as stale
+    permissions:
+      roles:
+        - triage
+        - write
+        - maintain
+        - admin
+    actions:
+      - type: add-labels
+        labels:
+          - keep-open
+      - type: remove-labels
+        labels:
+          - stale
+      - type: add-reaction
+        reaction: "+1"

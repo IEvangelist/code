@@ -1,0 +1,100 @@
+# Auto-Triage Configuration
+# Automatically labels and triages new issues based on content
+
+version: "1.0"
+name: Auto Triage
+description: Automatically triage new issues and pull requests
+
+triggers:
+  # Label bug reports
+  - event: issues
+    on:
+      - opened
+    conditions:
+      title:
+        matches: "(?i)(bug|error|crash|fail|broken)"
+      labels:
+        none-of:
+          - bug
+          - feature
+          - question
+    actions:
+      - type: add-labels
+        labels:
+          - bug
+          - needs-triage
+
+  # Label feature requests
+  - event: issues
+    on:
+      - opened
+    conditions:
+      title:
+        matches: "(?i)(feature|request|enhancement|add|implement)"
+      labels:
+        none-of:
+          - bug
+          - feature
+          - question
+    actions:
+      - type: add-labels
+        labels:
+          - feature
+          - needs-triage
+
+  # Label questions
+  - event: issues
+    on:
+      - opened
+    conditions:
+      title:
+        matches: "(?i)(question|how to|help|support|\\?$)"
+      labels:
+        none-of:
+          - bug
+          - feature
+          - question
+    actions:
+      - type: add-labels
+        labels:
+          - question
+      - type: add-comment
+        body: |
+          👋 This looks like a question! 
+          
+          Before waiting for a response, you might want to check:
+          - 📖 [Documentation](../docs)
+          - 💬 [Discussions](../../discussions)
+          - 🔍 [Existing issues](../../issues?q=is%3Aissue)
+
+  # Add needs-triage to unlabeled issues
+  - event: issues
+    on:
+      - opened
+    conditions:
+      labels:
+        none-of:
+          - bug
+          - feature
+          - question
+          - documentation
+          - needs-triage
+    actions:
+      - type: add-labels
+        labels:
+          - needs-triage
+
+  # Remove needs-triage when priority is set
+  - event: issues
+    on:
+      - labeled
+    conditions:
+      labels:
+        any-of:
+          - "priority:high"
+          - "priority:medium"
+          - "priority:low"
+    actions:
+      - type: remove-labels
+        labels:
+          - needs-triage

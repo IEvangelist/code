@@ -1,0 +1,158 @@
+# Assignment Commands Configuration
+# Slash commands for managing issue and PR assignments
+
+version: "1.0"
+name: Assignment Commands
+description: Slash commands for managing assignments
+
+commands:
+  # Assign to a user
+  - name: assign
+    aliases:
+      - a
+    description: Assign this issue or PR to a user
+    parameters:
+      - name: user
+        type: user
+        required: false
+        description: Username to assign (defaults to yourself)
+    permissions:
+      collaborators: true
+    conditions:
+      state: open
+    actions:
+      - type: assign
+        users:
+          - "{{ user | default: actor }}"
+      - type: add-reaction
+        reaction: "+1"
+
+  # Unassign a user
+  - name: unassign
+    description: Remove assignment from a user
+    parameters:
+      - name: user
+        type: user
+        required: false
+        description: Username to unassign (defaults to yourself)
+    permissions:
+      collaborators: true
+    actions:
+      - type: unassign
+        users:
+          - "{{ user | default: actor }}"
+      - type: add-reaction
+        reaction: "+1"
+
+  # Assign to me
+  - name: mine
+    aliases:
+      - take
+      - claim
+    description: Assign this issue to yourself
+    permissions:
+      collaborators: true
+    conditions:
+      state: open
+    actions:
+      - type: assign
+        users:
+          - "{{ actor }}"
+      - type: add-comment
+        body: |
+          Assigned to @{{ actor }}. Thanks for picking this up! 🙌
+      - type: remove-labels
+        labels:
+          - "help wanted"
+
+  # Request review
+  - name: review
+    aliases:
+      - r
+      - request-review
+    description: Request a review from a user or team
+    parameters:
+      - name: reviewer
+        type: user
+        required: true
+        description: Username or team to request review from
+    permissions:
+      roles:
+        - write
+        - maintain
+        - admin
+    conditions:
+      state: open
+    actions:
+      - type: request-review
+        users:
+          - "{{ reviewer }}"
+      - type: add-reaction
+        reaction: "+1"
+
+  # Request team review
+  - name: team-review
+    aliases:
+      - tr
+    description: Request a review from a team
+    parameters:
+      - name: team
+        type: string
+        required: true
+        description: Team slug to request review from
+    permissions:
+      roles:
+        - write
+        - maintain
+        - admin
+    conditions:
+      state: open
+    actions:
+      - type: request-review
+        teams:
+          - "{{ team }}"
+      - type: add-reaction
+        reaction: "+1"
+
+  # CC someone (mention in comment)
+  - name: cc
+    description: Mention a user to bring their attention to this issue
+    parameters:
+      - name: users
+        type: user
+        required: true
+        description: Users to mention
+    permissions:
+      collaborators: true
+    actions:
+      - type: add-comment
+        body: |
+          👋 cc @{{ users }}
+      - type: add-reaction
+        reaction: eyes
+
+  # Transfer to another team
+  - name: transfer
+    description: Transfer this issue to another team
+    parameters:
+      - name: team
+        type: string
+        required: true
+        description: Team to transfer to
+    permissions:
+      roles:
+        - triage
+        - write
+        - maintain
+        - admin
+    actions:
+      - type: add-labels
+        labels:
+          - "team:{{ team }}"
+      - type: add-comment
+        body: |
+          This issue has been transferred to the **{{ team }}** team.
+          
+          A member of that team will pick it up soon.
+      - type: add-reaction
+        reaction: "+1"

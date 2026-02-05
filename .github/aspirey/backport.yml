@@ -16,8 +16,9 @@ commands:
       - name: targetBranch
         type: branch
         required: true
-        description: Target branch for backport (e.g., release/v1.0)
-        pattern: "^(release|hotfix)/"
+        description: Target branch for backport
+        # Optional: Uncomment to restrict to specific branch patterns
+        # pattern: "^(release|hotfix|vnext)/"
     permissions:
       roles:
         - write
@@ -31,21 +32,29 @@ commands:
           - "backport:{{ targetBranch }}"
       - type: create-branch
         source: "{{ pull_request.merge_commit_sha }}"
-        target: "backport/{{ targetBranch | replace: '/', '-' }}/pr-{{ pull_request.number }}"
+        target: "backport/{{ targetBranch }}/pr-{{ pull_request.number }}"
+      - type: create-pull-request
+        title: "[Backport {{ targetBranch }}] {{ pull_request.title }}"
+        head: "backport/{{ targetBranch }}/pr-{{ pull_request.number }}"
+        base: "{{ targetBranch }}"
+        body: |
+          Backport of #{{ pull_request.number }} to `{{ targetBranch }}`.
+          
+          ---
+          
+          /cc @{{ pull_request.author }}
       - type: add-comment
         body: |
-          🔄 Backport initiated to `{{ targetBranch }}`
+          🔄 Backport PR created for `{{ targetBranch }}`.
           
-          A new branch has been created: `backport/{{ targetBranch | replace: '/', '-' }}/pr-{{ pull_request.number }}`
-          
-          **Next steps:**
-          1. Check out the backport branch
-          2. Resolve any conflicts if needed
-          3. Create a new PR targeting `{{ targetBranch }}`
+          If there are merge conflicts, you can resolve them locally:
           
           ```bash
           git fetch origin
-          git checkout backport/{{ targetBranch | replace: '/', '-' }}/pr-{{ pull_request.number }}
+          git checkout backport/{{ targetBranch }}/pr-{{ pull_request.number }}
+          git rebase origin/{{ targetBranch }}
+          # resolve conflicts
+          git push --force-with-lease
           ```
       - type: add-reaction
         reaction: "+1"

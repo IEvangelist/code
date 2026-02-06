@@ -1,0 +1,12 @@
+version: "1.0"
+name: Command tests
+description: A few commands to test functionality
+
+commands:
+  - name: close
+    description: Close this issue or PR
+    actions:
+      - type: close
+        reason: Because @{{ comment.author }} wanted to close it...
+      - type: add-reaction
+        reaction: eyes

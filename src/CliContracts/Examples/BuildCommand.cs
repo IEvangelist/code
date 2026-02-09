@@ -43,6 +43,14 @@ public sealed class SuccessOutput
     [StdOut]
     [Contains("0 Warning(s)", CaseSensitive = false)]
     public bool NoWarnings { get; init; }
+
+    /// <summary>
+    /// Validates the build timing summary line (e.g., "Time Elapsed 00:00:02.34").
+    /// </summary>
+    [StdOut]
+    [MatchesPattern(@"Time Elapsed\s+\d{2}:\d{2}:\d{2}\.\d+",
+        Description = "Build timing summary")]
+    public bool HasTimingSummary { get; init; }
 }
 
 /// <summary>

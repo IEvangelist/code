@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace CliContracts;
 
@@ -56,7 +57,7 @@ public sealed class CliContractBuilder<T> where T : class
     {
         var contractType = typeof(T);
         var commandAttr = contractType.GetCustomAttribute<CliCommandAttribute>();
-        
+
         if (commandAttr == null)
         {
             throw new InvalidOperationException(
@@ -89,7 +90,7 @@ public sealed class CliContractBuilder<T> where T : class
     {
         var trimmed = command.Trim();
         var firstSpace = trimmed.IndexOf(' ');
-        
+
         if (firstSpace == -1)
         {
             return (trimmed, string.Empty);
@@ -99,7 +100,7 @@ public sealed class CliContractBuilder<T> where T : class
     }
 
     private async Task<(int ExitCode, string StdOut, string StdErr)> RunProcessAsync(
-        string executable, 
+        string executable,
         string arguments)
     {
         using var process = new Process();
@@ -143,7 +144,7 @@ public sealed class CliContractBuilder<T> where T : class
         process.BeginErrorReadLine();
 
         using var cts = new CancellationTokenSource(_timeout);
-        
+
         try
         {
             await process.WaitForExitAsync(cts.Token);
@@ -159,9 +160,9 @@ public sealed class CliContractBuilder<T> where T : class
     }
 
     private List<ContractViolation> ValidateContract(
-        Type contractType, 
-        int exitCode, 
-        string stdOut, 
+        Type contractType,
+        int exitCode,
+        string stdOut,
         string stdErr)
     {
         var violations = new List<ContractViolation>();
@@ -169,7 +170,7 @@ public sealed class CliContractBuilder<T> where T : class
 
         // Find the output type for this exit code
         var exitCodeProperty = properties
-            .FirstOrDefault(p => 
+            .FirstOrDefault(p =>
             {
                 var attr = p.GetCustomAttribute<ExitCodeAttribute>();
                 return attr != null && attr.Code == exitCode;
@@ -205,30 +206,30 @@ public sealed class CliContractBuilder<T> where T : class
     }
 
     private void ValidateOutputType(
-        Type outputType, 
-        string stdOut, 
-        string stdErr, 
+        Type outputType,
+        string stdOut,
+        string stdErr,
         List<ContractViolation> violations)
     {
         var properties = outputType.GetProperties();
 
         foreach (var property in properties)
         {
+            var hasStdOut = property.GetCustomAttribute<StdOutAttribute>() != null;
+            var hasStdErr = property.GetCustomAttribute<StdErrAttribute>() != null;
+
             // Check [Contains] attributes
             var containsAttrs = property.GetCustomAttributes<ContainsAttribute>();
-            
+
             foreach (var contains in containsAttrs)
             {
-                var hasStdOut = property.GetCustomAttribute<StdOutAttribute>() != null;
-                var hasStdErr = property.GetCustomAttribute<StdErrAttribute>() != null;
-
                 // If property has StdOut attribute, check stdout
                 // If property has StdErr attribute, check stderr
                 // If property has Contains but no stream attribute, check stdout by default
                 string textToCheck = hasStdErr ? stdErr : stdOut;
 
-                var comparison = contains.CaseSensitive 
-                    ? StringComparison.Ordinal 
+                var comparison = contains.CaseSensitive
+                    ? StringComparison.Ordinal
                     : StringComparison.OrdinalIgnoreCase;
 
                 if (!textToCheck.Contains(contains.Text, comparison))
@@ -239,6 +240,35 @@ public sealed class CliContractBuilder<T> where T : class
                         Type = ViolationType.MissingExpectedOutput,
                         Message = $"Expected {stream} to contain \"{contains.Text}\" " +
                                   $"(property: {property.Name})"
+                    });
+                }
+            }
+
+            // Check [MatchesPattern] attributes
+            var patternAttrs = property.GetCustomAttributes<MatchesPatternAttribute>();
+
+            foreach (var pattern in patternAttrs)
+            {
+                string textToCheck = hasStdErr ? stdErr : stdOut;
+
+                var regexOptions = RegexOptions.None;
+                if (pattern.IgnoreCase)
+                    regexOptions |= RegexOptions.IgnoreCase;
+                if (pattern.Multiline)
+                    regexOptions |= RegexOptions.Multiline;
+
+                if (!Regex.IsMatch(textToCheck, pattern.Pattern, regexOptions))
+                {
+                    var stream = hasStdErr ? "stderr" : "stdout";
+                    var description = pattern.Description != null
+                        ? $" ({pattern.Description})"
+                        : string.Empty;
+                    violations.Add(new ContractViolation
+                    {
+                        Type = ViolationType.InvalidOutputFormat,
+                        Message = $"Expected {stream} to match pattern \"{pattern.Pattern}\"{description} " +
+                                  $"(property: {property.Name})",
+                        PropertyName = property.Name
                     });
                 }
             }

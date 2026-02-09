@@ -6,9 +6,8 @@ description: |
 
 triggers:
   - event: pull_request
-    on: [closed]
+    on: [merged]
     conditions:
-      merged: true
       branches:
         base:
           matches: "^main$"

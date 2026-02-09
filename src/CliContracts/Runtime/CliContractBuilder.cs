@@ -57,7 +57,7 @@ public sealed class CliContractBuilder<T> where T : class
     {
         var contractType = typeof(T);
         var commandAttr = contractType.GetCustomAttribute<CliCommandAttribute>();
-        
+
         if (commandAttr == null)
         {
             throw new InvalidOperationException(
@@ -90,7 +90,7 @@ public sealed class CliContractBuilder<T> where T : class
     {
         var trimmed = command.Trim();
         var firstSpace = trimmed.IndexOf(' ');
-        
+
         if (firstSpace == -1)
         {
             return (trimmed, string.Empty);
@@ -100,7 +100,7 @@ public sealed class CliContractBuilder<T> where T : class
     }
 
     private async Task<(int ExitCode, string StdOut, string StdErr)> RunProcessAsync(
-        string executable, 
+        string executable,
         string arguments)
     {
         using var process = new Process();
@@ -144,7 +144,7 @@ public sealed class CliContractBuilder<T> where T : class
         process.BeginErrorReadLine();
 
         using var cts = new CancellationTokenSource(_timeout);
-        
+
         try
         {
             await process.WaitForExitAsync(cts.Token);
@@ -160,9 +160,9 @@ public sealed class CliContractBuilder<T> where T : class
     }
 
     private List<ContractViolation> ValidateContract(
-        Type contractType, 
-        int exitCode, 
-        string stdOut, 
+        Type contractType,
+        int exitCode,
+        string stdOut,
         string stdErr)
     {
         var violations = new List<ContractViolation>();
@@ -170,7 +170,7 @@ public sealed class CliContractBuilder<T> where T : class
 
         // Find the output type for this exit code
         var exitCodeProperty = properties
-            .FirstOrDefault(p => 
+            .FirstOrDefault(p =>
             {
                 var attr = p.GetCustomAttribute<ExitCodeAttribute>();
                 return attr != null && attr.Code == exitCode;
@@ -206,9 +206,9 @@ public sealed class CliContractBuilder<T> where T : class
     }
 
     private void ValidateOutputType(
-        Type outputType, 
-        string stdOut, 
-        string stdErr, 
+        Type outputType,
+        string stdOut,
+        string stdErr,
         List<ContractViolation> violations)
     {
         var properties = outputType.GetProperties();
@@ -220,7 +220,7 @@ public sealed class CliContractBuilder<T> where T : class
 
             // Check [Contains] attributes
             var containsAttrs = property.GetCustomAttributes<ContainsAttribute>();
-            
+
             foreach (var contains in containsAttrs)
             {
                 // If property has StdOut attribute, check stdout
@@ -228,8 +228,8 @@ public sealed class CliContractBuilder<T> where T : class
                 // If property has Contains but no stream attribute, check stdout by default
                 string textToCheck = hasStdErr ? stdErr : stdOut;
 
-                var comparison = contains.CaseSensitive 
-                    ? StringComparison.Ordinal 
+                var comparison = contains.CaseSensitive
+                    ? StringComparison.Ordinal
                     : StringComparison.OrdinalIgnoreCase;
 
                 if (!textToCheck.Contains(contains.Text, comparison))

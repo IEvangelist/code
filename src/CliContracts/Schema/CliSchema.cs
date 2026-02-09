@@ -29,6 +29,13 @@ public sealed class CliSchema
     public required List<OptionSchema> Options { get; init; }
 
     /// <summary>
+    /// Gets the positional arguments.
+    /// </summary>
+    [JsonPropertyName("arguments")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ArgumentSchema>? Arguments { get; init; }
+
+    /// <summary>
     /// Gets the output definitions by exit code.
     /// </summary>
     [JsonPropertyName("outputs")]
@@ -55,6 +62,7 @@ public sealed class CliSchema
 
         var properties = contractType.GetProperties();
         var options = new List<OptionSchema>();
+        var arguments = new List<ArgumentSchema>();
         var outputs = new Dictionary<string, OutputSchema>();
 
         foreach (var property in properties)
@@ -72,6 +80,20 @@ public sealed class CliSchema
                 });
             }
 
+            // Check for Argument attribute
+            var argumentAttr = property.GetCustomAttribute<ArgumentAttribute>();
+            if (argumentAttr != null)
+            {
+                arguments.Add(new ArgumentSchema
+                {
+                    Name = argumentAttr.Name,
+                    Position = argumentAttr.Position,
+                    Type = GetTypeString(property.PropertyType),
+                    Required = argumentAttr.Required,
+                    Description = argumentAttr.Description
+                });
+            }
+
             // Check for ExitCode attribute
             var exitCodeAttr = property.GetCustomAttribute<ExitCodeAttribute>();
             if (exitCodeAttr != null)
@@ -85,6 +107,7 @@ public sealed class CliSchema
             Command = commandAttr.Name,
             Description = commandAttr.Description,
             Options = options,
+            Arguments = arguments.Count > 0 ? arguments.OrderBy(a => a.Position).ToList() : null,
             Outputs = outputs
         };
     }
@@ -96,22 +119,42 @@ public sealed class CliSchema
 
         foreach (var property in properties)
         {
-            var containsAttrs = property.GetCustomAttributes<ContainsAttribute>().ToList();
-            if (containsAttrs.Count == 0) continue;
-
             var hasStdErr = property.GetCustomAttribute<StdErrAttribute>() != null;
 
-            var texts = containsAttrs.Select(c => c.Text).ToList();
+            // Collect [Contains] attributes
+            var containsAttrs = property.GetCustomAttributes<ContainsAttribute>().ToList();
+            if (containsAttrs.Count > 0)
+            {
+                var texts = containsAttrs.Select(c => c.Text).ToList();
 
-            if (hasStdErr)
-            {
-                schema.StderrContains ??= new List<string>();
-                schema.StderrContains.AddRange(texts);
+                if (hasStdErr)
+                {
+                    schema.StderrContains ??= new List<string>();
+                    schema.StderrContains.AddRange(texts);
+                }
+                else
+                {
+                    schema.StdoutContains ??= new List<string>();
+                    schema.StdoutContains.AddRange(texts);
+                }
             }
-            else
+
+            // Collect [MatchesPattern] attributes
+            var patternAttrs = property.GetCustomAttributes<MatchesPatternAttribute>().ToList();
+            if (patternAttrs.Count > 0)
             {
-                schema.StdoutContains ??= new List<string>();
-                schema.StdoutContains.AddRange(texts);
+                var patterns = patternAttrs.Select(p => p.Pattern).ToList();
+
+                if (hasStdErr)
+                {
+                    schema.StderrMatchesPatterns ??= new List<string>();
+                    schema.StderrMatchesPatterns.AddRange(patterns);
+                }
+                else
+                {
+                    schema.StdoutMatchesPatterns ??= new List<string>();
+                    schema.StdoutMatchesPatterns.AddRange(patterns);
+                }
             }
         }
 

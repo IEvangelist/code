@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace CliContracts;
 
@@ -214,14 +215,14 @@ public sealed class CliContractBuilder<T> where T : class
 
         foreach (var property in properties)
         {
+            var hasStdOut = property.GetCustomAttribute<StdOutAttribute>() != null;
+            var hasStdErr = property.GetCustomAttribute<StdErrAttribute>() != null;
+
             // Check [Contains] attributes
             var containsAttrs = property.GetCustomAttributes<ContainsAttribute>();
             
             foreach (var contains in containsAttrs)
             {
-                var hasStdOut = property.GetCustomAttribute<StdOutAttribute>() != null;
-                var hasStdErr = property.GetCustomAttribute<StdErrAttribute>() != null;
-
                 // If property has StdOut attribute, check stdout
                 // If property has StdErr attribute, check stderr
                 // If property has Contains but no stream attribute, check stdout by default
@@ -239,6 +240,35 @@ public sealed class CliContractBuilder<T> where T : class
                         Type = ViolationType.MissingExpectedOutput,
                         Message = $"Expected {stream} to contain \"{contains.Text}\" " +
                                   $"(property: {property.Name})"
+                    });
+                }
+            }
+
+            // Check [MatchesPattern] attributes
+            var patternAttrs = property.GetCustomAttributes<MatchesPatternAttribute>();
+
+            foreach (var pattern in patternAttrs)
+            {
+                string textToCheck = hasStdErr ? stdErr : stdOut;
+
+                var regexOptions = RegexOptions.None;
+                if (pattern.IgnoreCase)
+                    regexOptions |= RegexOptions.IgnoreCase;
+                if (pattern.Multiline)
+                    regexOptions |= RegexOptions.Multiline;
+
+                if (!Regex.IsMatch(textToCheck, pattern.Pattern, regexOptions))
+                {
+                    var stream = hasStdErr ? "stderr" : "stdout";
+                    var description = pattern.Description != null
+                        ? $" ({pattern.Description})"
+                        : string.Empty;
+                    violations.Add(new ContractViolation
+                    {
+                        Type = ViolationType.InvalidOutputFormat,
+                        Message = $"Expected {stream} to match pattern \"{pattern.Pattern}\"{description} " +
+                                  $"(property: {property.Name})",
+                        PropertyName = property.Name
                     });
                 }
             }

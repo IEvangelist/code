@@ -1,0 +1,73 @@
+version: "1.0"
+name: AI Docs Audit
+description: |
+  When a PR is merged, analyze the changes and create a
+  documentation PR in the IEvangelist/content repo.
+
+triggers:
+  - event: pull_request
+    on: [closed]
+    conditions:
+      merged: true
+      branches:
+        base:
+          matches: "^main$"
+    actions:
+      - type: ai-skill
+        prompt: |
+          Analyze the following merged PR and generate detailed documentation
+          requirements for a coding agent to implement.
+
+          ## PR Details
+          - **PR:** #{{ pull_request.number }}
+          - **Title:** {{ pull_request.title }}
+          - **Author:** @{{ pull_request.author }}
+          - **Branch:** {{ pull_request.head.ref }} → {{ pull_request.base.ref }}
+          - **Body:**
+          {{ pull_request.body }}
+
+          Review the changes for:
+          - New public APIs, methods, classes, or interfaces
+          - New features or capabilities
+          - Breaking changes requiring migration guides
+          - New configuration options or settings
+          - Behavioral changes to existing features
+          - New command-line arguments or environment variables
+
+          Before making recommendations, check the content repository at
+          https://github.com/IEvangelist/content to:
+          - Identify existing documentation pages that should be updated
+          - Determine if a new documentation page should be created
+          - Find related documentation that needs cross-references
+          - Understand the current documentation structure and patterns
+
+          If documentation is needed, provide:
+          1. A clear title for the documentation task
+          2. Whether to UPDATE existing page(s) or CREATE new page(s)
+             - For updates: List the specific file paths that need updating
+             - For new pages: Suggest the file path and location
+          3. Specific sections that need to be created or updated
+          4. Key points that must be covered in each section
+          5. Code examples that should be included (with placeholders for actual code)
+          6. Any warnings, notes, or best practices to document
+          7. Cross-references to related documentation pages
+
+          If no documentation is needed, respond with 'NO_DOCS_NEEDED'.
+
+          Format your response as a structured description that a coding agent
+          can follow to implement the documentation.
+        instructions: |
+          You are a technical documentation auditor. Analyze code changes from
+          a merged pull request and produce actionable documentation tasks.
+          Be thorough but concise. Use Markdown formatting.
+        model: gpt-4o
+        output-action: create-pull-request
+        target-owner: IEvangelist
+        target-repo: content
+        target-base: main
+        head: "ai/docs-pr-{{ pull_request.number }}"
+        title: "docs: Update for {{ pull_request.title }}"
+        body: |
+          This PR was auto-generated from [IEvangelist/code#{{ pull_request.number }}](https://github.com/IEvangelist/code/pull/{{ pull_request.number }}).
+        draft: true
+        labels: [ai-generated, documentation]
